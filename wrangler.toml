@@ -1,0 +1,26 @@
+# Deploys Lujane's painting shop as its own Cloudflare Worker. This repo
+# is entirely this project — nothing shared with 4dasistas.ca beyond
+# being on the same Cloudflare account. Serves the static gallery/admin
+# pages from public/ and the /api/* routes from src/worker.js.
+#
+# Deploys automatically on every push to main via
+# .github/workflows/deploy.yml (see README.md for one-time setup of the
+# two GitHub Actions secrets it needs). To deploy by hand instead, from
+# the repo root:
+#   npx wrangler login
+#   npx wrangler secret put ADMIN_PASSWORD     (enter 122139 when prompted)
+#   npx wrangler deploy
+#
+# The site is live at https://lujane-art.<your-subdomain>.workers.dev
+# (Cloudflare dashboard -> Workers & Pages -> lujane-art shows the exact URL).
+
+name = "lujane-art"
+main = "src/worker.js"
+compatibility_date = "2026-09-15"
+
+[[kv_namespaces]]
+binding = "ART_DATA"
+id = "8643a9a1000f42788a5a9f97fdb502e8"
+
+[assets]
+directory = "public"
