@@ -90,10 +90,29 @@ async function withAuth(request, env, handler) {
 }
 
 async function adminLogin(request, env) {
+  const ip = request.headers.get("CF-Connecting-IP") || "unknown";
+  const failKey = `loginfail:${ip}`;
+  const now = Date.now();
+  const failRaw = await env.ART_DATA.get(failKey);
+  const fail = failRaw ? JSON.parse(failRaw) : { count: 0, lockUntil: 0 };
+
+  if (fail.lockUntil && now < fail.lockUntil) {
+    const waitMin = Math.ceil((fail.lockUntil - now) / 60000);
+    return json({ error: `Too many wrong attempts. Try again in ${waitMin} minute${waitMin === 1 ? "" : "s"}.` }, 429);
+  }
+
   const body = await request.json().catch(() => ({}));
   if (!body.password || body.password !== env.ADMIN_PASSWORD) {
+    fail.count = (fail.count || 0) + 1;
+    if (fail.count >= 5) {
+      const lockMinutes = Math.min(15 * 2 ** (fail.count - 5), 240);
+      fail.lockUntil = now + lockMinutes * 60000;
+    }
+    await env.ART_DATA.put(failKey, JSON.stringify(fail), { expirationTtl: 60 * 60 * 24 });
     return json({ error: "Wrong password" }, 401);
   }
+
+  await env.ART_DATA.delete(failKey);
   const token = crypto.randomUUID();
   await env.ART_DATA.put(`session:${token}`, "1", { expirationTtl: SESSION_TTL_SECONDS });
   return json({ token });
