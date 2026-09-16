@@ -11,10 +11,10 @@
 #   npx wrangler secret put ADMIN_PASSWORD     (enter 122139 when prompted)
 #   npx wrangler deploy
 #
-# The site is live at https://lujane-art.<your-subdomain>.workers.dev
-# (Cloudflare dashboard -> Workers & Pages -> lujane-art shows the exact URL).
+# The site is live at https://art.lujane.workers.dev
+# (Cloudflare dashboard -> Workers & Pages -> art shows the exact URL).
 
-name = "lujane-art"
+name = "art"
 main = "src/worker.js"
 compatibility_date = "2026-09-15"
 

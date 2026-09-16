@@ -47,10 +47,9 @@ out of the repo (it's stored encrypted on Cloudflare, not in
 npx wrangler deploy
 ```
 
-Wrangler will print the live URL, something like
-`https://lujane-art.<your-subdomain>.workers.dev` — that's the link to
-share. It also shows up in the Cloudflare dashboard under
-Workers & Pages → `lujane-art`.
+Wrangler will print the live URL: `https://art.lujane.workers.dev` —
+that's the link to share. It also shows up in the Cloudflare dashboard
+under Workers & Pages → `art`.
 
 Re-run `npx wrangler deploy` any time you change something locally and
 don't want to wait on a push.
