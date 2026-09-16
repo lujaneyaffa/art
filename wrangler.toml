@@ -5,10 +5,11 @@
 #
 # Deploys automatically on every push to main via
 # .github/workflows/deploy.yml (see README.md for one-time setup of the
-# two GitHub Actions secrets it needs). To deploy by hand instead, from
+# GitHub Actions secrets it needs). To deploy by hand instead, from
 # the repo root:
 #   npx wrangler login
 #   npx wrangler secret put ADMIN_PASSWORD     (enter 122139 when prompted)
+#   npx wrangler secret put RESEND_API_KEY     (enter your Resend API key)
 #   npx wrangler deploy
 #
 # The site is live at https://art.lujane.workers.dev
@@ -24,3 +25,7 @@ id = "8643a9a1000f42788a5a9f97fdb502e8"
 
 [assets]
 directory = "public"
+
+[vars]
+NOTIFY_EMAIL = "lujanealdimasi@gmail.com"
+FROM_EMAIL = "Lujane Yaffa Art <onboarding@resend.dev>"

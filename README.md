@@ -28,9 +28,13 @@ add two repository secrets:
 - `ART_ADMIN_PASSWORD` — `122139` (or whatever you want the admin
   password to be; the workflow sets it as a Worker secret on every
   deploy, so changing this value and pushing is also how you rotate it)
+- `ART_RESEND_API_KEY` — a [Resend](https://resend.com) API key, for
+  bid notification emails (see below). Optional: if left unset,
+  bidding still works, you just don't get emailed about it.
 
 After that, any push to `main` deploys automatically and keeps the
-admin password in sync — no local `wrangler` needed at all.
+admin password and email key in sync — no local `wrangler` needed at
+all.
 
 ## Deploying — by hand
 
@@ -76,3 +80,32 @@ painting's own bid history, and you follow up with the winner yourself
 in person, etc. If you want real payments wired in later, that's a
 separate, bigger piece of work (Stripe or similar) — flag it if you want
 it and it can be added on top of this.
+
+## Email notification on every bid
+
+Every accepted bid emails `lujanealdimasi@gmail.com` (set via the
+`NOTIFY_EMAIL` var in `wrangler.toml`) with who bid, how much, and a
+link back to the admin panel. Sending is done through
+[Resend](https://resend.com) — free, no credit card, and you don't
+need your own domain to get started:
+
+1. Sign up at resend.com **using `lujanealdimasi@gmail.com`** as the
+   account email (without a verified domain, Resend's shared sending
+   address can only deliver to the address you signed up with — so
+   this has to match `NOTIFY_EMAIL`).
+2. Dashboard → API Keys → Create API Key (default permissions are fine).
+3. Add that key as the `ART_RESEND_API_KEY` GitHub secret (see above),
+   or run `npx wrangler secret put RESEND_API_KEY` if deploying by hand.
+
+If this isn't set up, bids still work exactly the same — you just
+won't get an email, and would need to check the admin panel or gallery
+to see new bids. Failing to send the email never blocks a bid from
+being recorded.
+
+## Editing a painting after posting it
+
+In the admin panel, each listed painting has an **Edit** button (next
+to Delete) that opens a form to change its title or description, add
+more photos, or check off existing photos to remove — separate from
+the Status dropdown, which is always visible for quickly marking
+something sold.

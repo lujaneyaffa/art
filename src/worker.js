@@ -266,14 +266,12 @@ async function placeBid(request, env) {
     return json({ error: `Bid must be higher than the current bid of $${painting.currentBid}` }, 400);
   }
 
+  const previousBid = painting.currentBid;
+  const email = (body.email || "").toString().trim();
+
   const bidsRaw = await env.ART_DATA.get(`bids:${paintingId}`);
   const bids = bidsRaw ? JSON.parse(bidsRaw) : [];
-  bids.push({
-    name,
-    email: (body.email || "").toString().trim(),
-    amount,
-    createdAt: Date.now(),
-  });
+  bids.push({ name, email, amount, createdAt: Date.now() });
   await env.ART_DATA.put(`bids:${paintingId}`, JSON.stringify(bids));
 
   painting.currentBid = amount;
@@ -281,7 +279,30 @@ async function placeBid(request, env) {
   painting.bidCount = (painting.bidCount || 0) + 1;
   await env.ART_DATA.put(`painting:${paintingId}`, JSON.stringify(painting));
 
+  await notifyBid(env, painting, { name, email, amount, previousBid });
+
   return json({ painting });
+}
+
+async function notifyBid(env, painting, bid) {
+  if (!env.RESEND_API_KEY || !env.NOTIFY_EMAIL) return;
+  try {
+    await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${env.RESEND_API_KEY}`,
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({
+        from: env.FROM_EMAIL || "Lujane Yaffa Art <onboarding@resend.dev>",
+        to: env.NOTIFY_EMAIL,
+        subject: `New bid on "${painting.title}": $${bid.amount}`,
+        text: `${bid.name} (${bid.email || "no email given"}) bid $${bid.amount} on "${painting.title}".\n\nPrevious bid: $${bid.previousBid}\nTotal bids on this piece: ${painting.bidCount}\n\nManage it: https://art.lujane.workers.dev/admin.html`,
+      }),
+    });
+  } catch (err) {
+    // A failed notification email should never block the bid itself.
+  }
 }
 
 async function serveImage(env, imageId) {

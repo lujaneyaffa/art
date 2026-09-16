@@ -12,7 +12,8 @@
   .row a, .row button.link { font-size: 0.8rem; letter-spacing: 0.08em; text-transform: uppercase; background: none; border: none; cursor: pointer; color: var(--muted); }
   .painting-form { display: grid; gap: 0.6rem; border: 1px solid var(--line); padding: 1.5rem; margin-bottom: 2.5rem; }
   .painting-form label { font-size: 0.7rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); display: block; margin-bottom: 0.2rem; }
-  .list-item { border: 1px solid var(--line); padding: 1rem 1.25rem; margin-bottom: 1rem; display: flex; gap: 1rem; align-items: flex-start; }
+  .list-item { border: 1px solid var(--line); padding: 1rem 1.25rem; margin-bottom: 1rem; }
+  .list-item .row-top { display: flex; gap: 1rem; align-items: flex-start; }
   .list-item img { width: 72px; height: 90px; object-fit: cover; background: #f5f5f5; flex-shrink: 0; }
   .list-item .meta { flex: 1; }
   .list-item .meta h3 { margin: 0 0 0.2rem; font-size: 0.95rem; }
@@ -21,6 +22,14 @@
   .list-item .actions button { font: inherit; font-size: 0.72rem; letter-spacing: 0.06em; text-transform: uppercase; padding: 0.4rem 0.6rem; border: 1px solid var(--line); background: var(--paper); cursor: pointer; }
   .list-item .actions button.danger { border-color: #b3261e; color: #b3261e; }
   select { font: inherit; padding: 0.5rem; border: 1px solid var(--line); background: var(--paper); }
+  .edit-panel { display: grid; gap: 0.6rem; margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--line); }
+  .edit-panel label { font-size: 0.7rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); display: block; margin-bottom: 0.2rem; }
+  .existing-images { display: flex; gap: 0.6rem; flex-wrap: wrap; }
+  .existing-images figure { margin: 0; text-align: center; font-size: 0.68rem; color: var(--muted); }
+  .existing-images img { width: 64px; height: 80px; object-fit: cover; background: #f5f5f5; display: block; }
+  .existing-images label { display: flex; align-items: center; gap: 0.3rem; justify-content: center; margin-top: 0.25rem; font-size: 0.65rem; text-transform: none; letter-spacing: 0; }
+  .edit-actions { display: flex; gap: 0.5rem; }
+  .edit-actions button.secondary { background: var(--paper); color: var(--ink); border: 1px solid var(--line); }
 </style>
 </head>
 <body>
@@ -175,38 +184,105 @@ async function loadList() {
   list.innerHTML = paintings
     .map((p) => {
       const img = p.images && p.images[0] ? `<img src="/api/images/${p.images[0]}" alt="">` : '';
+      const existingImages = (p.images || [])
+        .map(
+          (imgId) => `
+            <figure>
+              <img src="/api/images/${imgId}" alt="">
+              <label><input type="checkbox" name="removeImage" value="${imgId}"> remove</label>
+            </figure>`
+        )
+        .join('');
       return `
         <div class="list-item" data-id="${p.id}">
-          ${img}
-          <div class="meta">
-            <h3>${escapeHtml(p.title)}</h3>
-            <p>${money(p.currentBid)} &middot; ${p.bidCount || 0} bid${p.bidCount === 1 ? '' : 's'}</p>
-            <label>Status
-              <select class="status-select">
-                <option value="available" ${p.status === 'available' ? 'selected' : ''}>Available</option>
-                <option value="sold" ${p.status === 'sold' ? 'selected' : ''}>Sold</option>
-                <option value="archived" ${p.status === 'archived' ? 'selected' : ''}>Archived (hidden)</option>
-              </select>
-            </label>
+          <div class="row-top">
+            ${img}
+            <div class="meta">
+              <h3>${escapeHtml(p.title)}</h3>
+              <p>${money(p.currentBid)} &middot; ${p.bidCount || 0} bid${p.bidCount === 1 ? '' : 's'}</p>
+              <label>Status
+                <select class="status-select">
+                  <option value="available" ${p.status === 'available' ? 'selected' : ''}>Available</option>
+                  <option value="sold" ${p.status === 'sold' ? 'selected' : ''}>Sold</option>
+                  <option value="archived" ${p.status === 'archived' ? 'selected' : ''}>Archived (hidden)</option>
+                </select>
+              </label>
+            </div>
+            <div class="actions">
+              <button class="edit-btn">Edit</button>
+              <button class="danger delete-btn">Delete</button>
+            </div>
           </div>
-          <div class="actions">
-            <button class="danger delete-btn">Delete</button>
-          </div>
+          <form class="edit-panel" hidden>
+            <div>
+              <label>Title</label>
+              <input type="text" name="title" value="${escapeHtml(p.title)}" required />
+            </div>
+            <div>
+              <label>Description</label>
+              <textarea name="description" rows="3">${escapeHtml(p.description || '')}</textarea>
+            </div>
+            ${
+              existingImages
+                ? `<div>
+                    <label>Current photos (check to remove)</label>
+                    <div class="existing-images">${existingImages}</div>
+                  </div>`
+                : ''
+            }
+            <div>
+              <label>Add photos</label>
+              <input type="file" name="images" accept="image/*" multiple />
+            </div>
+            <div class="edit-actions">
+              <button class="primary" type="submit">Save</button>
+              <button class="secondary cancel-edit-btn" type="button">Cancel</button>
+            </div>
+            <p class="msg" data-edit-msg></p>
+          </form>
         </div>`;
     })
     .join('');
 
   list.querySelectorAll('.list-item').forEach((item) => {
     const id = item.dataset.id;
+    const panel = item.querySelector('.edit-panel');
+
     item.querySelector('.status-select').addEventListener('change', async (e) => {
       const fd = new FormData();
       fd.append('status', e.target.value);
       await authFetch(`/api/admin/paintings/${id}`, { method: 'PUT', body: fd });
     });
+
     item.querySelector('.delete-btn').addEventListener('click', async () => {
       if (!confirm('Delete this painting? This cannot be undone.')) return;
       await authFetch(`/api/admin/paintings/${id}`, { method: 'DELETE' });
       loadList();
+    });
+
+    item.querySelector('.edit-btn').addEventListener('click', () => {
+      panel.hidden = !panel.hidden;
+    });
+
+    item.querySelector('.cancel-edit-btn').addEventListener('click', () => {
+      panel.hidden = true;
+    });
+
+    panel.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const msg = panel.querySelector('[data-edit-msg]');
+      msg.textContent = '';
+      msg.className = 'msg';
+      try {
+        const fd = new FormData(panel);
+        const r = await authFetch(`/api/admin/paintings/${id}`, { method: 'PUT', body: fd });
+        const out = await r.json();
+        if (!r.ok) throw new Error(out.error || 'Could not save changes');
+        loadList();
+      } catch (err) {
+        msg.textContent = err.message;
+        msg.className = 'msg error';
+      }
     });
   });
 }
