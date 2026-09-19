@@ -60,7 +60,7 @@ async function loadPaintings() {
   grid.innerHTML = paintings
     .filter((p) => p.status !== 'archived')
     .map((p) => {
-      const img = p.images && p.images[0] ? `<img src="/api/images/${p.images[0]}" alt="">` : '';
+      const img = p.images && p.images[0] ? `<img src="/api/images/${p.images[0]}" alt="" loading="lazy" decoding="async">` : '';
       const statusLabel = p.status === 'sold' ? 'Sold' : `${p.bidCount || 0} bid${p.bidCount === 1 ? '' : 's'}`;
       return `
         <button class="card" data-id="${p.id}">
@@ -87,7 +87,7 @@ async function openPainting(id) {
   history.replaceState(null, '', `?painting=${id}`);
 
   const images = (painting.images || [])
-    .map((imgId) => `<img src="/api/images/${imgId}" alt="">`)
+    .map((imgId) => `<img src="/api/images/${imgId}" alt="" loading="lazy" decoding="async">`)
     .join('');
 
   const soldOut = painting.status !== 'available';
