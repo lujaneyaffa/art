@@ -1,0 +1,22 @@
+name: Shrink existing images
+
+on:
+  workflow_dispatch: {}
+
+jobs:
+  shrink:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install sharp
+        run: npm install sharp --no-save
+
+      - name: Shrink
+        env:
+          ART_ADMIN_PASSWORD: ${{ secrets.ART_ADMIN_PASSWORD }}
+        run: node import/shrink-images.mjs
