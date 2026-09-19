@@ -47,6 +47,39 @@ header.site p {
   font-size: 0.85rem;
 }
 
+.tabs {
+  display: flex;
+  justify-content: center;
+  gap: 1.75rem;
+  margin-top: 1.25rem;
+}
+
+.tabs a {
+  text-decoration: none;
+  font-size: 0.75rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+  padding-bottom: 0.35rem;
+  border-bottom: 1px solid transparent;
+}
+
+.tabs a.active {
+  color: var(--ink);
+  border-bottom-color: var(--ink);
+}
+
+footer.site .social {
+  display: inline-flex;
+  vertical-align: middle;
+  margin-right: 0.9rem;
+  color: var(--muted);
+}
+
+footer.site .social:hover {
+  color: var(--ink);
+}
+
 main {
   max-width: 1080px;
   margin: 0 auto;

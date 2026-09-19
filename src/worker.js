@@ -9,6 +9,8 @@
 //   bids:<paintingId>     JSON array of bids for that painting
 //   image:<imageId>       raw image bytes (metadata: {contentType})
 //   session:<token>       "1", expires after 7 days (admin login)
+//   commission:<id>       JSON commission request record
+//   commissions:index     JSON array of commission ids, newest first
 
 const SESSION_TTL_SECONDS = 60 * 60 * 24 * 7;
 
@@ -33,6 +35,19 @@ export default {
 
       if (pathname === "/api/bids" && request.method === "POST") {
         return await placeBid(request, env);
+      }
+
+      if (pathname === "/api/commissions" && request.method === "POST") {
+        return await createCommission(request, env);
+      }
+
+      if (pathname === "/api/admin/commissions" && request.method === "GET") {
+        return await withAuth(request, env, () => listCommissions(env));
+      }
+
+      const commissionMatch = pathname.match(/^\/api\/admin\/commissions\/([^/]+)$/);
+      if (commissionMatch && request.method === "DELETE") {
+        return await withAuth(request, env, () => deleteCommission(env, commissionMatch[1]));
       }
 
       const imageMatch = pathname.match(/^\/api\/images\/([^/]+)$/);
@@ -284,7 +299,7 @@ async function placeBid(request, env) {
   return json({ painting });
 }
 
-async function notifyBid(env, painting, bid) {
+async function sendNotificationEmail(env, subject, text) {
   if (!env.RESEND_API_KEY || !env.NOTIFY_EMAIL) return;
   try {
     await fetch("https://api.resend.com/emails", {
@@ -296,13 +311,71 @@ async function notifyBid(env, painting, bid) {
       body: JSON.stringify({
         from: env.FROM_EMAIL || "Lujane Yaffa Art <onboarding@resend.dev>",
         to: env.NOTIFY_EMAIL,
-        subject: `New bid on "${painting.title}": $${bid.amount}`,
-        text: `${bid.name} (${bid.email || "no email given"}) bid $${bid.amount} on "${painting.title}".\n\nPrevious bid: $${bid.previousBid}\nTotal bids on this piece: ${painting.bidCount}\n\nManage it: https://art.lujane.workers.dev/admin.html`,
+        subject,
+        text,
       }),
     });
   } catch (err) {
-    // A failed notification email should never block the bid itself.
+    // A failed notification email should never block the action itself.
   }
+}
+
+async function notifyBid(env, painting, bid) {
+  await sendNotificationEmail(
+    env,
+    `New bid on "${painting.title}": $${bid.amount}`,
+    `${bid.name} (${bid.email || "no email given"}) bid $${bid.amount} on "${painting.title}".\n\nPrevious bid: $${bid.previousBid}\nTotal bids on this piece: ${painting.bidCount}\n\nManage it: https://art.lujane.workers.dev/admin.html`
+  );
+}
+
+async function getCommissionIndex(env) {
+  const raw = await env.ART_DATA.get("commissions:index");
+  return raw ? JSON.parse(raw) : [];
+}
+
+async function createCommission(request, env) {
+  const body = await request.json().catch(() => ({}));
+  const name = (body.name || "").toString().trim();
+  const email = (body.email || "").toString().trim();
+  const description = (body.description || "").toString().trim();
+  const budget = (body.budget || "").toString().trim();
+
+  if (!name || !email || !description) {
+    return json({ error: "Name, email, and a description are required" }, 400);
+  }
+
+  const id = crypto.randomUUID();
+  const commission = { id, name, email, description, budget, createdAt: Date.now() };
+
+  await env.ART_DATA.put(`commission:${id}`, JSON.stringify(commission));
+  const ids = await getCommissionIndex(env);
+  ids.unshift(id);
+  await env.ART_DATA.put("commissions:index", JSON.stringify(ids));
+
+  await sendNotificationEmail(
+    env,
+    `New commission request from ${name}`,
+    `${name} (${email}) wants a commission.\n\nBudget: ${budget || "not given"}\n\n${description}\n\nManage it: https://art.lujane.workers.dev/admin.html`
+  );
+
+  return json({ commission }, 201);
+}
+
+async function listCommissions(env) {
+  const ids = await getCommissionIndex(env);
+  const commissions = [];
+  for (const id of ids) {
+    const raw = await env.ART_DATA.get(`commission:${id}`);
+    if (raw) commissions.push(JSON.parse(raw));
+  }
+  return json({ commissions });
+}
+
+async function deleteCommission(env, id) {
+  await env.ART_DATA.delete(`commission:${id}`);
+  const ids = (await getCommissionIndex(env)).filter((i) => i !== id);
+  await env.ART_DATA.put("commissions:index", JSON.stringify(ids));
+  return json({ ok: true });
 }
 
 async function serveImage(env, imageId) {

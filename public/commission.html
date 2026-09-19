@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Lujane Yaffa &mdash; Commission</title>
+<link rel="stylesheet" href="style.css" />
+<style>
+  .commission-form { display: grid; gap: 0.6rem; max-width: 440px; margin: 0 auto; }
+  .commission-form label { font-size: 0.7rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); display: block; margin-bottom: 0.2rem; }
+  .commission-form textarea { min-height: 8rem; }
+  .commission-intro { max-width: 440px; margin: 0 auto 2rem; text-align: center; color: #333; line-height: 1.6; font-size: 0.9rem; }
+</style>
+</head>
+<body>
+<header class="site">
+  <h1>Lujane Yaffa</h1>
+  <p>Original paintings &mdash; place a bid to make one yours</p>
+  <nav class="tabs">
+    <a href="index.html">Gallery</a>
+    <a href="commission.html" class="active">Request a commission</a>
+  </nav>
+</header>
+
+<main>
+  <p class="commission-intro">Want a piece made for you? Tell me a bit about what you have in mind &mdash; size, colors, mood, budget &mdash; and I'll get back to you.</p>
+  <form class="commission-form" id="commissionForm">
+    <div>
+      <label>Your name</label>
+      <input type="text" name="name" required />
+    </div>
+    <div>
+      <label>Email</label>
+      <input type="email" name="email" required />
+    </div>
+    <div>
+      <label>Budget (optional)</label>
+      <input type="text" name="budget" placeholder="e.g. $200&ndash;300" />
+    </div>
+    <div>
+      <label>What are you picturing?</label>
+      <textarea name="description" required placeholder="Size, colors, mood, where it'll hang, anything you have in mind"></textarea>
+    </div>
+    <button class="primary" type="submit">Send request</button>
+    <p class="msg" id="commissionMsg"></p>
+  </form>
+</main>
+
+<footer class="site">
+  <a class="social" href="https://instagram.com/lujaneyaffa" target="_blank" rel="noopener" aria-label="Instagram">
+    <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4.2"/><circle cx="17.3" cy="6.7" r="1"/></svg>
+  </a>
+  <a href="admin.html">admin</a>
+</footer>
+
+<script>
+document.getElementById('commissionForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const form = e.target;
+  const msg = document.getElementById('commissionMsg');
+  const submitBtn = form.querySelector('button');
+  msg.textContent = '';
+  msg.className = 'msg';
+  submitBtn.disabled = true;
+  const fd = new FormData(form);
+  try {
+    const r = await fetch('/api/commissions', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        name: fd.get('name'),
+        email: fd.get('email'),
+        budget: fd.get('budget'),
+        description: fd.get('description'),
+      }),
+    });
+    const out = await r.json();
+    if (!r.ok) throw new Error(out.error || 'Something went wrong');
+    form.reset();
+    msg.textContent = "Sent! I'll get back to you by email.";
+    msg.className = 'msg ok';
+  } catch (err) {
+    msg.textContent = err.message;
+    msg.className = 'msg error';
+  } finally {
+    submitBtn.disabled = false;
+  }
+});
+</script>
+</body>
+</html>

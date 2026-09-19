@@ -30,12 +30,22 @@
   .existing-images label { display: flex; align-items: center; gap: 0.3rem; justify-content: center; margin-top: 0.25rem; font-size: 0.65rem; text-transform: none; letter-spacing: 0; }
   .edit-actions { display: flex; gap: 0.5rem; }
   .edit-actions button.secondary { background: var(--paper); color: var(--ink); border: 1px solid var(--line); }
+  h2.section-heading { font-size: 0.9rem; letter-spacing: 0.05em; margin: 3rem 0 1rem; }
+  .commission-item { border: 1px solid var(--line); padding: 1rem 1.25rem; margin-bottom: 1rem; display: flex; gap: 1rem; justify-content: space-between; align-items: flex-start; }
+  .commission-item .meta h3 { margin: 0 0 0.2rem; font-size: 0.9rem; }
+  .commission-item .meta p { margin: 0.15rem 0; font-size: 0.8rem; color: var(--muted); }
+  .commission-item .meta .desc { margin-top: 0.5rem; color: #333; white-space: pre-wrap; font-size: 0.85rem; }
+  .commission-item button.danger { font: inherit; font-size: 0.72rem; letter-spacing: 0.06em; text-transform: uppercase; padding: 0.4rem 0.6rem; background: var(--paper); cursor: pointer; border-color: #b3261e; color: #b3261e; flex-shrink: 0; }
 </style>
 </head>
 <body>
 <header class="site">
   <h1>Lujane Yaffa</h1>
   <p>Admin</p>
+  <nav class="tabs">
+    <a href="index.html">Gallery</a>
+    <a href="commission.html">Request a commission</a>
+  </nav>
 </header>
 
 <main class="admin">
@@ -73,6 +83,9 @@
     </form>
 
     <div id="list"></div>
+
+    <h2 class="section-heading">Commission requests</h2>
+    <div id="commissionsList"></div>
   </div>
 </main>
 
@@ -103,6 +116,41 @@ function showDashboard() {
   loginView.hidden = true;
   dashboardView.hidden = false;
   loadList();
+  loadCommissions();
+}
+
+async function loadCommissions() {
+  const container = document.getElementById('commissionsList');
+  const res = await authFetch('/api/admin/commissions');
+  const { commissions } = await res.json();
+
+  if (!commissions.length) {
+    container.innerHTML = '<p class="empty-state">No commission requests yet.</p>';
+    return;
+  }
+
+  container.innerHTML = commissions
+    .map(
+      (c) => `
+        <div class="commission-item" data-id="${c.id}">
+          <div class="meta">
+            <h3>${escapeHtml(c.name)}</h3>
+            <p>${escapeHtml(c.email)} ${c.budget ? '&middot; ' + escapeHtml(c.budget) : ''}</p>
+            <p>${new Date(c.createdAt).toLocaleDateString()}</p>
+            <p class="desc">${escapeHtml(c.description)}</p>
+          </div>
+          <button class="danger delete-commission-btn">Delete</button>
+        </div>`
+    )
+    .join('');
+
+  container.querySelectorAll('.commission-item').forEach((item) => {
+    item.querySelector('.delete-commission-btn').addEventListener('click', async () => {
+      if (!confirm('Delete this commission request?')) return;
+      await authFetch(`/api/admin/commissions/${item.dataset.id}`, { method: 'DELETE' });
+      loadCommissions();
+    });
+  });
 }
 
 function showLogin() {

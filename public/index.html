@@ -10,6 +10,10 @@
 <header class="site">
   <h1>Lujane Yaffa</h1>
   <p>Original paintings &mdash; place a bid to make one yours</p>
+  <nav class="tabs">
+    <a href="index.html" class="active">Gallery</a>
+    <a href="commission.html">Request a commission</a>
+  </nav>
 </header>
 
 <main>
@@ -17,7 +21,12 @@
   <div id="emptyState" class="empty-state" hidden>No paintings listed yet. Check back soon.</div>
 </main>
 
-<footer class="site"><a href="admin.html">admin</a></footer>
+<footer class="site">
+  <a class="social" href="https://instagram.com/lujaneyaffa" target="_blank" rel="noopener" aria-label="Instagram">
+    <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4.2"/><circle cx="17.3" cy="6.7" r="1"/></svg>
+  </a>
+  <a href="admin.html">admin</a>
+</footer>
 
 <div class="overlay" id="overlay" hidden>
   <div class="modal">
@@ -61,13 +70,12 @@ async function loadPaintings() {
     .filter((p) => p.status !== 'archived')
     .map((p) => {
       const img = p.images && p.images[0] ? `<img src="/api/images/${p.images[0]}" alt="" loading="lazy" decoding="async">` : '';
-      const statusLabel = p.status === 'sold' ? 'Sold' : `${p.bidCount || 0} bid${p.bidCount === 1 ? '' : 's'}`;
       return `
         <button class="card" data-id="${p.id}">
           <div class="thumb ${img ? '' : 'empty'}">${img || 'No photo'}</div>
           <h2>${escapeHtml(p.title)}</h2>
           <p class="price">${money(p.currentBid)}</p>
-          <span class="status">${statusLabel}</span>
+          ${p.status === 'sold' ? '<span class="status">Sold</span>' : ''}
         </button>`;
     })
     .join('');
@@ -104,7 +112,7 @@ async function openPainting(id) {
     <h2>${escapeHtml(painting.title)}</h2>
     <p class="desc">${escapeHtml(painting.description || '')}</p>
     <div class="bid-box">
-      <div class="current">${money(painting.currentBid)}<small>${soldOut ? (painting.status === 'sold' ? 'Sold' : 'Not available') : `current bid · ${painting.bidCount || 0} bid${painting.bidCount === 1 ? '' : 's'}`}</small></div>
+      <div class="current">${money(painting.currentBid)}<small>${soldOut ? (painting.status === 'sold' ? 'Sold' : 'Not available') : 'current bid'}</small></div>
       ${
         soldOut
           ? ''
