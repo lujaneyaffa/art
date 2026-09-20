@@ -75,7 +75,6 @@ async function loadPaintings() {
         <button class="card" data-id="${p.id}">
           <div class="thumb ${img ? '' : 'empty'}">${img || 'No photo'}</div>
           <h2>${escapeHtml(p.title)}</h2>
-          <p class="price">${money(p.currentBid)}</p>
           ${p.status === 'sold' ? '<span class="status">Sold</span>' : ''}
         </button>`;
     })
@@ -113,24 +112,33 @@ async function openPainting(id) {
     <h2>${escapeHtml(painting.title)}</h2>
     <p class="desc">${escapeHtml(painting.description || '')}</p>
     <div class="bid-box">
-      <div class="current">${money(painting.currentBid)}<small>${soldOut ? (painting.status === 'sold' ? 'Sold' : 'Not available') : 'current bid'}</small></div>
       ${
         soldOut
-          ? ''
-          : `<form class="bid-form" id="bidForm">
-              <input type="text" name="name" placeholder="Your name" required />
-              <input type="email" name="email" placeholder="Email (so we can reach you if you win)" required />
-              <input type="number" name="amount" min="${painting.currentBid + 1}" step="1" placeholder="Your bid (min ${money(painting.currentBid + 1)})" required />
-              <button class="primary" type="submit">Place bid</button>
-              <p class="msg" id="bidMsg"></p>
-            </form>`
+          ? `<div class="current"><small>${painting.status === 'sold' ? 'Sold' : 'Not available'}</small></div>`
+          : `<div class="current"><small>Starting price</small>${money(painting.startingBid)}</div>
+             <button class="primary" id="showBidFormBtn">Place a bid</button>
+             <form class="bid-form" id="bidForm" hidden>
+               <input type="text" name="name" placeholder="Your name" required />
+               <input type="email" name="email" placeholder="Email (so we can reach you if you win)" required />
+               <input type="number" name="amount" min="${painting.currentBid + 1}" step="1" placeholder="Your bid (min ${money(painting.currentBid + 1)})" required />
+               <button class="primary" type="submit">Place bid</button>
+               <p class="msg" id="bidMsg"></p>
+             </form>`
       }
       ${bidHistory}
     </div>
   `;
   overlay.hidden = false;
 
+  const showBidFormBtn = document.getElementById('showBidFormBtn');
   const form = document.getElementById('bidForm');
+  if (showBidFormBtn) {
+    showBidFormBtn.addEventListener('click', () => {
+      showBidFormBtn.hidden = true;
+      form.hidden = false;
+      form.querySelector('input').focus();
+    });
+  }
   if (form) {
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
