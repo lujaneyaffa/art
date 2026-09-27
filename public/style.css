@@ -213,6 +213,13 @@ main {
   white-space: pre-wrap;
 }
 
+.piece-meta {
+  margin: 0 0 0.75rem;
+  color: var(--muted);
+  font-size: 0.78rem;
+  letter-spacing: 0.03em;
+}
+
 .bid-box {
   margin-top: 2rem;
   border-top: 1px solid var(--line);

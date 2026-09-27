@@ -170,9 +170,13 @@ async function openPainting(id) {
         .join('')}</ul>`
     : '';
 
+  const metaParts = [painting.medium, painting.dimensions, painting.year].filter((v) => v && v.toString().trim());
+  const metaLine = metaParts.length ? `<p class="piece-meta">${metaParts.map(escapeHtml).join(' &middot; ')}</p>` : '';
+
   modalBody.innerHTML = `
     ${images || ''}
     <h2>${escapeHtml(painting.title)}</h2>
+    ${metaLine}
     <p class="desc">${escapeHtml(painting.description || '')}</p>
     <div class="bid-box">
       ${

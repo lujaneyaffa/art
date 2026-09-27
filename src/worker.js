@@ -201,6 +201,9 @@ async function createPainting(request, env) {
   const formData = await request.formData();
   const title = (formData.get("title") || "").toString().trim();
   const description = (formData.get("description") || "").toString().trim();
+  const medium = (formData.get("medium") || "").toString().trim();
+  const dimensions = (formData.get("dimensions") || "").toString().trim();
+  const year = (formData.get("year") || "").toString().trim();
   const startingBid = Number(formData.get("startingBid") || 0);
   const endsAt = parseEndsAt(formData.get("endsAt"));
 
@@ -219,6 +222,9 @@ async function createPainting(request, env) {
     id,
     title,
     description,
+    medium,
+    dimensions,
+    year,
     startingBid,
     currentBid: startingBid,
     highestBidderName: null,
@@ -245,12 +251,18 @@ async function updatePainting(request, env, id) {
   const formData = await request.formData();
   const title = formData.get("title");
   const description = formData.get("description");
+  const medium = formData.get("medium");
+  const dimensions = formData.get("dimensions");
+  const year = formData.get("year");
   const status = formData.get("status");
   const endsAt = formData.get("endsAt");
   const removeImages = formData.getAll("removeImage").map(String);
 
   if (title !== null && title.toString().trim()) painting.title = title.toString().trim();
   if (description !== null) painting.description = description.toString().trim();
+  if (medium !== null) painting.medium = medium.toString().trim();
+  if (dimensions !== null) painting.dimensions = dimensions.toString().trim();
+  if (year !== null) painting.year = year.toString().trim();
   if (status !== null && ["available", "sold", "archived"].includes(status.toString())) {
     painting.status = status.toString();
   }
