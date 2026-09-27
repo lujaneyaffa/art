@@ -57,7 +57,7 @@
 </head>
 <body>
 <header class="site">
-  <h1>Lujane Yaffa</h1>
+  <h1 id="siteHeading">Lujane Yaffa</h1>
   <p>Admin</p>
   <nav class="tabs">
     <a href="index.html">Gallery</a>
@@ -78,6 +78,21 @@
       <button class="link" id="logoutBtn">Log out</button>
     </div>
 
+    <h2 class="section-heading" style="margin-top: 0;">Site text</h2>
+    <form class="painting-form" id="siteTextForm">
+      <div>
+        <label>Heading</label>
+        <input type="text" name="heading" required />
+      </div>
+      <div>
+        <label>Tagline</label>
+        <input type="text" name="tagline" />
+      </div>
+      <button class="primary" type="submit">Save site text</button>
+      <p class="msg" id="siteTextMsg"></p>
+    </form>
+
+    <h2 class="section-heading">Paintings</h2>
     <form class="painting-form" id="createForm">
       <div>
         <label>Title</label>
@@ -138,7 +153,42 @@ function showDashboard() {
   dashboardView.hidden = false;
   loadList();
   loadCommissions();
+  loadSiteText();
 }
+
+async function loadSiteText() {
+  const res = await fetch('/api/sitetext');
+  const text = await res.json();
+  const form = document.getElementById('siteTextForm');
+  form.elements.heading.value = text.heading || '';
+  form.elements.tagline.value = text.tagline || '';
+}
+
+document.getElementById('siteTextForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const form = e.target;
+  const msg = document.getElementById('siteTextMsg');
+  msg.textContent = '';
+  msg.className = 'msg';
+  try {
+    const r = await authFetch('/api/admin/sitetext', {
+      method: 'PUT',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        heading: form.elements.heading.value,
+        tagline: form.elements.tagline.value,
+      }),
+    });
+    const out = await r.json();
+    if (!r.ok) throw new Error(out.error || 'Could not save');
+    document.getElementById('siteHeading').textContent = out.heading;
+    msg.textContent = 'Saved.';
+    msg.className = 'msg ok';
+  } catch (err) {
+    msg.textContent = err.message;
+    msg.className = 'msg error';
+  }
+});
 
 async function loadCommissions() {
   const container = document.getElementById('commissionsList');

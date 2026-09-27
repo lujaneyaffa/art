@@ -11,6 +11,7 @@
 //   session:<token>       "1", expires after 7 days (admin login)
 //   commission:<id>       JSON commission request record
 //   commissions:index     JSON array of commission ids, newest first
+//   sitetext              JSON {heading, tagline} for the site header
 
 const SESSION_TTL_SECONDS = 60 * 60 * 24 * 7;
 
@@ -31,6 +32,14 @@ export default {
       const paintingMatch = pathname.match(/^\/api\/paintings\/([^/]+)$/);
       if (paintingMatch && request.method === "GET") {
         return await getPainting(env, paintingMatch[1]);
+      }
+
+      if (pathname === "/api/sitetext" && request.method === "GET") {
+        return await getSiteText(env);
+      }
+
+      if (pathname === "/api/admin/sitetext" && request.method === "PUT") {
+        return await withAuth(request, env, (req) => updateSiteText(req, env));
       }
 
       if (pathname === "/api/bids" && request.method === "POST") {
@@ -169,7 +178,7 @@ async function getPainting(env, id) {
   const publicBids = bids
     .slice()
     .sort((a, b) => b.createdAt - a.createdAt)
-    .map((b) => ({ name: b.name, amount: b.amount, createdAt: b.createdAt }));
+    .map((b) => ({ name: b.anonymous ? "Anonymous" : b.name, amount: b.amount, createdAt: b.createdAt }));
   return json({ painting, bids: publicBids });
 }
 
@@ -310,9 +319,11 @@ async function placeBid(request, env) {
   const previousBidderName = painting.highestBidderName;
   const email = (body.email || "").toString().trim();
 
+  const anonymous = !!body.anonymous;
+
   const bidsRaw = await env.ART_DATA.get(`bids:${paintingId}`);
   const bids = bidsRaw ? JSON.parse(bidsRaw) : [];
-  bids.push({ name, email, amount, createdAt: Date.now() });
+  bids.push({ name, email, amount, anonymous, createdAt: Date.now() });
   await env.ART_DATA.put(`bids:${paintingId}`, JSON.stringify(bids));
 
   painting.currentBid = amount;
@@ -438,6 +449,29 @@ async function deleteCommission(env, id) {
   const ids = (await getCommissionIndex(env)).filter((i) => i !== id);
   await env.ART_DATA.put("commissions:index", JSON.stringify(ids));
   return json({ ok: true });
+}
+
+const DEFAULT_SITE_TEXT = {
+  heading: "Lujane Yaffa",
+  tagline: "Original paintings — place a bid to make one yours",
+};
+
+async function getSiteText(env) {
+  const raw = await env.ART_DATA.get("sitetext");
+  const text = raw ? { ...DEFAULT_SITE_TEXT, ...JSON.parse(raw) } : DEFAULT_SITE_TEXT;
+  return json(text);
+}
+
+async function updateSiteText(request, env) {
+  const body = await request.json().catch(() => ({}));
+  const heading = (body.heading || "").toString().trim();
+  const tagline = (body.tagline || "").toString().trim();
+
+  if (!heading) return json({ error: "Heading is required" }, 400);
+
+  const text = { heading, tagline };
+  await env.ART_DATA.put("sitetext", JSON.stringify(text));
+  return json(text);
 }
 
 async function serveImage(env, imageId) {

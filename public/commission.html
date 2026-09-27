@@ -27,8 +27,8 @@
 </head>
 <body>
 <header class="site">
-  <h1>Lujane Yaffa</h1>
-  <p>Original paintings &mdash; place a bid to make one yours</p>
+  <h1 id="siteHeading">Lujane Yaffa</h1>
+  <p id="siteTagline">Original paintings &mdash; place a bid to make one yours</p>
   <nav class="tabs">
     <a href="index.html">Gallery</a>
     <a href="commission.html" class="active">Request a commission</a>
@@ -64,10 +64,23 @@
   <a class="social" href="https://instagram.com/lujaneyaffa" target="_blank" rel="noopener" aria-label="Instagram">
     <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4.2"/><circle cx="17.3" cy="6.7" r="1"/></svg>
   </a>
-  <a href="admin.html">admin</a>
+  <a href="admin.html" id="adminLink">admin</a>
+  <button class="footer-logout" id="footerLogoutBtn" hidden>Log out</button>
 </footer>
 
 <script>
+fetch('/api/sitetext').then((r) => r.json()).then((t) => {
+  if (t.heading) document.getElementById('siteHeading').textContent = t.heading;
+  document.getElementById('siteTagline').textContent = t.tagline || '';
+}).catch(() => {});
+
+const footerLogoutBtn = document.getElementById('footerLogoutBtn');
+if (localStorage.getItem('art_admin_token')) footerLogoutBtn.hidden = false;
+footerLogoutBtn.addEventListener('click', () => {
+  localStorage.removeItem('art_admin_token');
+  footerLogoutBtn.hidden = true;
+});
+
 document.getElementById('commissionForm').addEventListener('submit', async (e) => {
   e.preventDefault();
   const form = e.target;

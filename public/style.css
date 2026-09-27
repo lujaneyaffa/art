@@ -177,6 +177,7 @@ main {
 .modal {
   max-width: 640px;
   width: 100%;
+  text-align: center;
 }
 
 .modal .close {
@@ -239,8 +240,9 @@ main {
 form.bid-form {
   display: grid;
   gap: 0.6rem;
-  margin-top: 1.25rem;
+  margin: 1.25rem auto 0;
   max-width: 360px;
+  text-align: left;
 }
 
 input,
@@ -293,16 +295,47 @@ button.primary:disabled {
 }
 
 .bid-history {
-  margin-top: 1.25rem;
+  margin: 1.25rem auto 0;
+  max-width: 360px;
   font-size: 0.8rem;
   color: var(--muted);
+  text-align: left;
 }
 
 .bid-history li {
   display: flex;
+  flex-wrap: wrap;
   justify-content: space-between;
-  padding: 0.25rem 0;
+  align-items: baseline;
+  gap: 0.25rem 0.75rem;
+  padding: 0.4rem 0;
   border-bottom: 1px solid var(--line);
+}
+
+.bid-history .bid-name {
+  flex: 1;
+  min-width: 6rem;
+}
+
+.bid-history .bid-time {
+  flex-basis: 100%;
+  font-size: 0.7rem;
+  color: #999;
+}
+
+.anon-check {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.78rem;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.anon-check input {
+  width: auto;
+  padding: 0;
+  flex-shrink: 0;
 }
 
 footer.site {
@@ -310,6 +343,17 @@ footer.site {
   color: var(--muted);
   font-size: 0.75rem;
   padding: 2rem 1rem 3rem;
+}
+
+.footer-logout {
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: none;
+  text-decoration: underline;
+  cursor: pointer;
+  padding: 0;
+  margin-left: 0.75rem;
 }
 
 .ends-at {

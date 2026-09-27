@@ -21,8 +21,8 @@
 </head>
 <body>
 <header class="site">
-  <h1>Lujane Yaffa</h1>
-  <p>Original paintings &mdash; place a bid to make one yours</p>
+  <h1 id="siteHeading">Lujane Yaffa</h1>
+  <p id="siteTagline">Original paintings &mdash; place a bid to make one yours</p>
   <nav class="tabs">
     <a href="index.html" class="active">Gallery</a>
     <a href="commission.html">Request a commission</a>
@@ -38,7 +38,8 @@
   <a class="social" href="https://instagram.com/lujaneyaffa" target="_blank" rel="noopener" aria-label="Instagram">
     <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4.2"/><circle cx="17.3" cy="6.7" r="1"/></svg>
   </a>
-  <a href="admin.html">admin</a>
+  <a href="admin.html" id="adminLink">admin</a>
+  <button class="footer-logout" id="footerLogoutBtn" hidden>Log out</button>
 </footer>
 
 <div class="overlay" id="overlay" hidden>
@@ -54,6 +55,18 @@
 </div>
 
 <script>
+fetch('/api/sitetext').then((r) => r.json()).then((t) => {
+  if (t.heading) document.getElementById('siteHeading').textContent = t.heading;
+  document.getElementById('siteTagline').textContent = t.tagline || '';
+}).catch(() => {});
+
+const footerLogoutBtn = document.getElementById('footerLogoutBtn');
+if (localStorage.getItem('art_admin_token')) footerLogoutBtn.hidden = false;
+footerLogoutBtn.addEventListener('click', () => {
+  localStorage.removeItem('art_admin_token');
+  footerLogoutBtn.hidden = true;
+});
+
 const grid = document.getElementById('grid');
 const emptyState = document.getElementById('emptyState');
 const overlay = document.getElementById('overlay');
@@ -89,6 +102,10 @@ function money(n) {
 
 function formatEndsAt(ms) {
   return new Date(ms).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+}
+
+function formatBidTime(ms) {
+  return new Date(ms).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' });
 }
 
 function escapeHtml(str) {
@@ -143,7 +160,13 @@ async function openPainting(id) {
   const bidHistory = bids && bids.length
     ? `<ul class="bid-history">${bids
         .slice(0, 8)
-        .map((b) => `<li><span>${escapeHtml(b.name)}</span><span>${money(b.amount)}</span></li>`)
+        .map(
+          (b) => `<li>
+            <span class="bid-name">${escapeHtml(b.name)}</span>
+            <span class="bid-amount">${money(b.amount)}</span>
+            <span class="bid-time">${formatBidTime(b.createdAt)}</span>
+          </li>`
+        )
         .join('')}</ul>`
     : '';
 
@@ -162,6 +185,7 @@ async function openPainting(id) {
                <input type="text" name="name" placeholder="Your name" required />
                <input type="email" name="email" placeholder="Email (so we can reach you if you win)" required />
                <input type="number" name="amount" min="${painting.currentBid + 1}" step="1" placeholder="Your bid (min ${money(painting.currentBid + 1)})" required />
+               <label class="anon-check"><input type="checkbox" name="anonymous" /> Bid anonymously (your name won't show in the public bid history)</label>
                <input type="text" name="website" class="hp-field" tabindex="-1" autocomplete="off" aria-hidden="true" />
                <button class="primary" type="submit">Place bid</button>
                <p class="msg" id="bidMsg"></p>
@@ -203,6 +227,7 @@ async function openPainting(id) {
             name: fd.get('name'),
             email: fd.get('email'),
             amount: Number(fd.get('amount')),
+            anonymous: fd.get('anonymous') === 'on',
             website: fd.get('website'),
           }),
         });
