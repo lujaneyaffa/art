@@ -85,6 +85,14 @@ function json(data, status = 200) {
   });
 }
 
+function parseEndsAt(value) {
+  if (value === null || value === undefined) return null;
+  const str = value.toString().trim();
+  if (!str) return null;
+  const num = Number(str);
+  return Number.isFinite(num) && num > 0 ? num : null;
+}
+
 function slugify(text) {
   return (
     text
@@ -185,6 +193,7 @@ async function createPainting(request, env) {
   const title = (formData.get("title") || "").toString().trim();
   const description = (formData.get("description") || "").toString().trim();
   const startingBid = Number(formData.get("startingBid") || 0);
+  const endsAt = parseEndsAt(formData.get("endsAt"));
 
   if (!title) return json({ error: "Title is required" }, 400);
   if (!Number.isFinite(startingBid) || startingBid < 0) {
@@ -204,9 +213,11 @@ async function createPainting(request, env) {
     startingBid,
     currentBid: startingBid,
     highestBidderName: null,
+    highestBidderEmail: null,
     bidCount: 0,
     images,
     status: "available",
+    endsAt,
     createdAt: Date.now(),
   };
 
@@ -226,6 +237,7 @@ async function updatePainting(request, env, id) {
   const title = formData.get("title");
   const description = formData.get("description");
   const status = formData.get("status");
+  const endsAt = formData.get("endsAt");
   const removeImages = formData.getAll("removeImage").map(String);
 
   if (title !== null && title.toString().trim()) painting.title = title.toString().trim();
@@ -233,6 +245,7 @@ async function updatePainting(request, env, id) {
   if (status !== null && ["available", "sold", "archived"].includes(status.toString())) {
     painting.status = status.toString();
   }
+  if (endsAt !== null) painting.endsAt = parseEndsAt(endsAt);
 
   for (const imageId of removeImages) {
     await env.ART_DATA.delete(`image:${imageId}`);
@@ -265,6 +278,14 @@ async function deletePainting(env, id) {
 
 async function placeBid(request, env) {
   const body = await request.json().catch(() => ({}));
+
+  // Honeypot: real visitors never fill this hidden field. A bot that
+  // does gets a normal-looking success response with nothing recorded,
+  // so it doesn't learn to look for a different tell.
+  if ((body.website || "").toString().trim()) {
+    return json({ painting: null }, 201);
+  }
+
   const paintingId = (body.paintingId || "").toString();
   const name = (body.name || "").toString().trim();
   const amount = Number(body.amount);
@@ -277,11 +298,16 @@ async function placeBid(request, env) {
   const painting = JSON.parse(raw);
 
   if (painting.status !== "available") return json({ error: "This piece is no longer available" }, 400);
+  if (painting.endsAt && Date.now() > painting.endsAt) {
+    return json({ error: "Bidding has closed on this piece" }, 400);
+  }
   if (amount <= painting.currentBid) {
     return json({ error: `Bid must be higher than the current bid of $${painting.currentBid}` }, 400);
   }
 
   const previousBid = painting.currentBid;
+  const previousBidderEmail = painting.highestBidderEmail;
+  const previousBidderName = painting.highestBidderName;
   const email = (body.email || "").toString().trim();
 
   const bidsRaw = await env.ART_DATA.get(`bids:${paintingId}`);
@@ -291,16 +317,21 @@ async function placeBid(request, env) {
 
   painting.currentBid = amount;
   painting.highestBidderName = name;
+  painting.highestBidderEmail = email;
   painting.bidCount = (painting.bidCount || 0) + 1;
   await env.ART_DATA.put(`painting:${paintingId}`, JSON.stringify(painting));
 
   await notifyBid(env, painting, { name, email, amount, previousBid });
+  if (email) await confirmBid(env, painting, { name, email, amount });
+  if (previousBidderEmail && previousBidderEmail !== email) {
+    await notifyOutbid(env, painting, { previousBidderName, previousBidderEmail, previousBid, amount });
+  }
 
   return json({ painting });
 }
 
-async function sendNotificationEmail(env, subject, text) {
-  if (!env.RESEND_API_KEY || !env.NOTIFY_EMAIL) return;
+async function sendEmail(env, { to, subject, text }) {
+  if (!env.RESEND_API_KEY || !to) return;
   try {
     await fetch("https://api.resend.com/emails", {
       method: "POST",
@@ -310,14 +341,18 @@ async function sendNotificationEmail(env, subject, text) {
       },
       body: JSON.stringify({
         from: env.FROM_EMAIL || "Lujane Yaffa Art <onboarding@resend.dev>",
-        to: env.NOTIFY_EMAIL,
+        to,
         subject,
         text,
       }),
     });
   } catch (err) {
-    // A failed notification email should never block the action itself.
+    // A failed email should never block the action itself.
   }
+}
+
+function sendNotificationEmail(env, subject, text) {
+  return sendEmail(env, { to: env.NOTIFY_EMAIL, subject, text });
 }
 
 async function notifyBid(env, painting, bid) {
@@ -328,6 +363,22 @@ async function notifyBid(env, painting, bid) {
   );
 }
 
+async function confirmBid(env, painting, bid) {
+  await sendEmail(env, {
+    to: bid.email,
+    subject: `Your bid on "${painting.title}" was received`,
+    text: `Hi ${bid.name},\n\nYour bid of $${bid.amount} on "${painting.title}" was received. If you're outbid, we'll let you know by email -- otherwise Lujane will reach out directly once bidding wraps up.\n\nSee the piece: https://art.lujane.workers.dev/index.html?painting=${painting.id}`,
+  });
+}
+
+async function notifyOutbid(env, painting, info) {
+  await sendEmail(env, {
+    to: info.previousBidderEmail,
+    subject: `You've been outbid on "${painting.title}"`,
+    text: `Hi ${info.previousBidderName},\n\nSomeone bid $${info.amount} on "${painting.title}", topping your bid of $${info.previousBid}. Want back in? Place a new bid here:\n\nhttps://art.lujane.workers.dev/index.html?painting=${painting.id}`,
+  });
+}
+
 async function getCommissionIndex(env) {
   const raw = await env.ART_DATA.get("commissions:index");
   return raw ? JSON.parse(raw) : [];
@@ -335,6 +386,12 @@ async function getCommissionIndex(env) {
 
 async function createCommission(request, env) {
   const body = await request.json().catch(() => ({}));
+
+  // Honeypot, same trick as placeBid: pretend it worked, save nothing.
+  if ((body.website || "").toString().trim()) {
+    return json({ commission: null }, 201);
+  }
+
   const name = (body.name || "").toString().trim();
   const email = (body.email || "").toString().trim();
   const description = (body.description || "").toString().trim();
@@ -357,6 +414,11 @@ async function createCommission(request, env) {
     `New commission request from ${name}`,
     `${name} (${email}) wants a commission.\n\nBudget: ${budget || "not given"}\n\n${description}\n\nManage it: https://art.lujane.workers.dev/admin.html`
   );
+  await sendEmail(env, {
+    to: email,
+    subject: "Your commission request was received",
+    text: `Hi ${name},\n\nThanks for reaching out -- your commission request was received:\n\n${description}\n\nBudget: ${budget || "not given"}\n\nLujane will get back to you by email soon.`,
+  });
 
   return json({ commission }, 201);
 }

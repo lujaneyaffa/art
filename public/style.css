@@ -311,3 +311,60 @@ footer.site {
   font-size: 0.75rem;
   padding: 2rem 1rem 3rem;
 }
+
+.ends-at {
+  margin: 0.35rem 0 0;
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+
+/* Honeypot: present in the DOM and tabbable-excluded for bots that
+   fill every field, invisible and unreachable for real visitors. */
+.hp-field {
+  position: absolute;
+  left: -9999px;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.modal img[data-lightbox] {
+  cursor: zoom-in;
+}
+
+.lightbox {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.92);
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem 1rem;
+}
+
+.lightbox[hidden] {
+  display: none;
+}
+
+.lightbox img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+
+.lightbox .close {
+  position: fixed;
+  top: env(safe-area-inset-top, 0px);
+  right: 1rem;
+  margin-top: 1rem;
+  background: none;
+  border: none;
+  color: #fff;
+  font-size: 0.85rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+  padding: 0.5rem;
+}

@@ -4,6 +4,12 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Lujane Yaffa &mdash; Commission</title>
+<meta name="description" content="Request a custom painting from Lujane Yaffa." />
+<meta property="og:type" content="website" />
+<meta property="og:title" content="Lujane Yaffa &mdash; Commission" />
+<meta property="og:description" content="Request a custom painting." />
+<meta property="og:image" content="https://art.lujane.workers.dev/og-image.png" />
+<meta name="twitter:card" content="summary_large_image" />
 <link rel="icon" type="image/svg+xml" href="favicon.svg" />
 <link rel="icon" href="favicon.ico" sizes="any" />
 <link rel="apple-touch-icon" href="apple-touch-icon.png" />
@@ -48,6 +54,7 @@
       <label>What are you picturing?</label>
       <textarea name="description" required placeholder="Size, colors, mood, where it'll hang, anything you have in mind"></textarea>
     </div>
+    <input type="text" name="website" class="hp-field" tabindex="-1" autocomplete="off" aria-hidden="true" />
     <button class="primary" type="submit">Send request</button>
     <p class="msg" id="commissionMsg"></p>
   </form>
@@ -79,6 +86,7 @@ document.getElementById('commissionForm').addEventListener('submit', async (e) =
         email: fd.get('email'),
         budget: fd.get('budget'),
         description: fd.get('description'),
+        website: fd.get('website'),
       }),
     });
     const out = await r.json();

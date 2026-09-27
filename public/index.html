@@ -4,6 +4,12 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Lujane Yaffa</title>
+<meta name="description" content="Original paintings by Lujane Yaffa &mdash; browse the gallery and place a bid to make one yours." />
+<meta property="og:type" content="website" />
+<meta property="og:title" content="Lujane Yaffa" />
+<meta property="og:description" content="Original paintings &mdash; browse the gallery and place a bid to make one yours." />
+<meta property="og:image" content="https://art.lujane.workers.dev/og-image.png" />
+<meta name="twitter:card" content="summary_large_image" />
 <link rel="icon" type="image/svg+xml" href="favicon.svg" />
 <link rel="icon" href="favicon.ico" sizes="any" />
 <link rel="apple-touch-icon" href="apple-touch-icon.png" />
@@ -42,14 +48,24 @@
   </div>
 </div>
 
+<div class="lightbox" id="lightbox" hidden>
+  <button class="close" id="closeLightbox">Close</button>
+  <img id="lightboxImg" src="" alt="" />
+</div>
+
 <script>
 const grid = document.getElementById('grid');
 const emptyState = document.getElementById('emptyState');
 const overlay = document.getElementById('overlay');
 const modalBody = document.getElementById('modalBody');
+const lightbox = document.getElementById('lightbox');
+const lightboxImg = document.getElementById('lightboxImg');
 
 document.getElementById('closeModal').addEventListener('click', closeModal);
 overlay.addEventListener('click', (e) => { if (e.target === overlay) closeModal(); });
+
+document.getElementById('closeLightbox').addEventListener('click', closeLightbox);
+lightbox.addEventListener('click', (e) => { if (e.target === lightbox) closeLightbox(); });
 
 function closeModal() {
   overlay.hidden = true;
@@ -57,8 +73,22 @@ function closeModal() {
   history.replaceState(null, '', location.pathname);
 }
 
+function openLightbox(src) {
+  lightboxImg.src = src;
+  lightbox.hidden = false;
+}
+
+function closeLightbox() {
+  lightbox.hidden = true;
+  lightboxImg.src = '';
+}
+
 function money(n) {
   return '$' + Number(n).toLocaleString(undefined, { maximumFractionDigits: 0 });
+}
+
+function formatEndsAt(ms) {
+  return new Date(ms).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
 }
 
 function escapeHtml(str) {
@@ -101,10 +131,14 @@ async function openPainting(id) {
   history.replaceState(null, '', `?painting=${id}`);
 
   const images = (painting.images || [])
-    .map((imgId) => `<img src="/api/images/${imgId}" alt="" loading="lazy" decoding="async">`)
+    .map((imgId, i) => `<img src="/api/images/${imgId}" alt="" loading="lazy" decoding="async" data-lightbox="${i}">`)
     .join('');
 
   const soldOut = painting.status !== 'available';
+  const ended = painting.endsAt && Date.now() > painting.endsAt;
+  const closed = soldOut || ended;
+
+  const endsLine = !closed && painting.endsAt ? `<p class="ends-at">Bidding ends ${formatEndsAt(painting.endsAt)}</p>` : '';
 
   const bidHistory = bids && bids.length
     ? `<ul class="bid-history">${bids
@@ -119,14 +153,16 @@ async function openPainting(id) {
     <p class="desc">${escapeHtml(painting.description || '')}</p>
     <div class="bid-box">
       ${
-        soldOut
-          ? `<div class="current"><small>${painting.status === 'sold' ? 'Sold' : 'Not available'}</small></div>`
+        closed
+          ? `<div class="current"><small>${painting.status === 'sold' ? 'Sold' : ended ? 'Bidding closed' : 'Not available'}</small></div>`
           : `<div class="current"><small>Starting price</small>${money(painting.startingBid)}</div>
+             ${endsLine}
              <button class="primary" id="showBidFormBtn">Place a bid</button>
              <form class="bid-form" id="bidForm" hidden>
                <input type="text" name="name" placeholder="Your name" required />
                <input type="email" name="email" placeholder="Email (so we can reach you if you win)" required />
                <input type="number" name="amount" min="${painting.currentBid + 1}" step="1" placeholder="Your bid (min ${money(painting.currentBid + 1)})" required />
+               <input type="text" name="website" class="hp-field" tabindex="-1" autocomplete="off" aria-hidden="true" />
                <button class="primary" type="submit">Place bid</button>
                <p class="msg" id="bidMsg"></p>
              </form>`
@@ -135,6 +171,10 @@ async function openPainting(id) {
     </div>
   `;
   overlay.hidden = false;
+
+  modalBody.querySelectorAll('img[data-lightbox]').forEach((imgEl) => {
+    imgEl.addEventListener('click', () => openLightbox(imgEl.src));
+  });
 
   const showBidFormBtn = document.getElementById('showBidFormBtn');
   const form = document.getElementById('bidForm');
@@ -163,6 +203,7 @@ async function openPainting(id) {
             name: fd.get('name'),
             email: fd.get('email'),
             amount: Number(fd.get('amount')),
+            website: fd.get('website'),
           }),
         });
         const out = await r.json();

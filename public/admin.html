@@ -4,6 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Lujane Yaffa &mdash; Admin</title>
+<meta name="robots" content="noindex, nofollow" />
 <link rel="icon" type="image/svg+xml" href="favicon.svg" />
 <link rel="icon" href="favicon.ico" sizes="any" />
 <link rel="apple-touch-icon" href="apple-touch-icon.png" />
@@ -89,6 +90,10 @@
       <div>
         <label>Starting price ($)</label>
         <input type="number" name="startingBid" min="0" step="1" required />
+      </div>
+      <div>
+        <label>Auction ends (optional)</label>
+        <input type="datetime-local" name="endsAt" />
       </div>
       <div>
         <label>Photos</label>
@@ -244,6 +249,24 @@ async function compressFormImages(fd) {
   }
 }
 
+function convertEndsAtField(fd) {
+  const raw = fd.get('endsAt');
+  if (raw === null) return;
+  const str = raw.toString().trim();
+  if (!str) {
+    fd.set('endsAt', '');
+    return;
+  }
+  const ms = new Date(str).getTime();
+  fd.set('endsAt', Number.isFinite(ms) ? String(ms) : '');
+}
+
+function toLocalDatetimeValue(ms) {
+  const d = new Date(ms);
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
 async function authFetch(url, options = {}) {
   options.headers = options.headers || {};
   options.headers['Authorization'] = `Bearer ${getToken()}`;
@@ -264,6 +287,7 @@ document.getElementById('createForm').addEventListener('submit', async (e) => {
   msg.className = 'msg';
   try {
     const fd = new FormData(form);
+    convertEndsAtField(fd);
     await compressFormImages(fd);
     const r = await authFetch('/api/admin/paintings', { method: 'POST', body: fd });
     const out = await r.json();
@@ -307,6 +331,7 @@ async function loadList() {
             <div class="meta">
               <h3>${escapeHtml(p.title)}</h3>
               <p>${money(p.currentBid)} &middot; ${p.bidCount || 0} bid${p.bidCount === 1 ? '' : 's'}</p>
+              ${p.endsAt ? `<p>Ends ${new Date(p.endsAt).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}</p>` : ''}
               <label>Status
                 <select class="status-select">
                   <option value="available" ${p.status === 'available' ? 'selected' : ''}>Available</option>
@@ -337,6 +362,10 @@ async function loadList() {
                   </div>`
                 : ''
             }
+            <div>
+              <label>Auction ends (optional, leave blank to remove)</label>
+              <input type="datetime-local" name="endsAt" value="${p.endsAt ? toLocalDatetimeValue(p.endsAt) : ''}" />
+            </div>
             <div>
               <label>Add photos</label>
               <input type="file" name="images" accept="image/*" multiple />
@@ -382,6 +411,7 @@ async function loadList() {
       msg.className = 'msg';
       try {
         const fd = new FormData(panel);
+        convertEndsAtField(fd);
         await compressFormImages(fd);
         const r = await authFetch(`/api/admin/paintings/${id}`, { method: 'PUT', body: fd });
         const out = await r.json();
