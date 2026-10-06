@@ -182,15 +182,40 @@ async function getPainting(env, id) {
   return json({ painting, bids: publicBids });
 }
 
-async function storeImages(env, id, formData) {
+async function hashBytes(bytes) {
+  const digest = await crypto.subtle.digest("SHA-256", bytes);
+  return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+async function getImageHash(env, imageId) {
+  const { value, metadata } = await env.ART_DATA.getWithMetadata(`image:${imageId}`, "stream");
+  if (value && typeof value.cancel === "function") value.cancel().catch(() => {});
+  return metadata && metadata.hash;
+}
+
+async function getExistingHashes(env, imageIds) {
+  const hashes = await Promise.all(imageIds.map((id) => getImageHash(env, id)));
+  return hashes.filter(Boolean);
+}
+
+// Stores newly uploaded photos, skipping any whose content exactly
+// matches one already on the painting (existingHashes) or an earlier
+// file in this same upload -- prevents the same photo getting added
+// twice, whether from a double-select or re-uploading via "Add
+// photos" without realizing it's already there.
+async function storeImages(env, id, formData, existingHashes = []) {
   const files = formData.getAll("images").filter((f) => f && typeof f.arrayBuffer === "function" && f.size > 0);
+  const seen = new Set(existingHashes);
   const imageIds = [];
   let i = 0;
   for (const file of files) {
-    const imageId = `${id}-${Date.now().toString(36)}-${i++}`;
     const bytes = await file.arrayBuffer();
+    const hash = await hashBytes(bytes);
+    if (seen.has(hash)) continue;
+    seen.add(hash);
+    const imageId = `${id}-${Date.now().toString(36)}-${i++}`;
     await env.ART_DATA.put(`image:${imageId}`, bytes, {
-      metadata: { contentType: file.type || "image/jpeg" },
+      metadata: { contentType: file.type || "image/jpeg", hash },
     });
     imageIds.push(imageId);
   }
@@ -273,7 +298,8 @@ async function updatePainting(request, env, id) {
     painting.images = painting.images.filter((i) => i !== imageId);
   }
 
-  const newImages = await storeImages(env, id, formData);
+  const existingHashes = await getExistingHashes(env, painting.images);
+  const newImages = await storeImages(env, id, formData, existingHashes);
   painting.images = [...painting.images, ...newImages];
 
   await env.ART_DATA.put(`painting:${id}`, JSON.stringify(painting));
