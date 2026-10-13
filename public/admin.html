@@ -55,6 +55,14 @@
   .commission-item .meta p { margin: 0.15rem 0; font-size: 0.8rem; color: var(--muted); }
   .commission-item .meta .desc { margin-top: 0.5rem; color: #333; white-space: pre-wrap; font-size: 0.85rem; }
   .commission-item button.danger { font: inherit; font-size: 0.72rem; letter-spacing: 0.06em; text-transform: uppercase; padding: 0.4rem 0.6rem; background: var(--paper); cursor: pointer; border-color: #b3261e; color: #b3261e; flex-shrink: 0; }
+  .collection-item { border: 1px solid var(--line); padding: 1rem 1.25rem; margin-bottom: 1rem; }
+  .collection-item .row-top { display: flex; gap: 1rem; justify-content: space-between; align-items: flex-start; }
+  .collection-item h3 { margin: 0 0 0.3rem; font-size: 0.95rem; }
+  .collection-item p { margin: 0; font-size: 0.8rem; color: var(--muted); white-space: pre-wrap; }
+  .collection-item .actions { display: flex; gap: 0.5rem; flex-shrink: 0; }
+  .collection-item .actions button { font: inherit; font-size: 0.72rem; letter-spacing: 0.06em; text-transform: uppercase; padding: 0.4rem 0.6rem; border: 1px solid var(--line); background: var(--paper); cursor: pointer; }
+  .collection-item .actions button.danger { border-color: #b3261e; color: #b3261e; }
+  .collection-edit { display: grid; gap: 0.6rem; margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--line); }
 </style>
 </head>
 <body>
@@ -94,6 +102,22 @@
       <p class="msg" id="siteTextMsg"></p>
     </form>
 
+    <h2 class="section-heading">Collections</h2>
+    <p style="font-size: 0.82rem; color: var(--muted); margin-top: -0.5rem;">Group paintings into named sections on the gallery page (e.g. a themed series shown together, with its own intro text). A painting with no collection just shows at the end, ungrouped.</p>
+    <form class="painting-form" id="createCollectionForm">
+      <div>
+        <label>Name</label>
+        <input type="text" name="name" required />
+      </div>
+      <div>
+        <label>Intro text (optional)</label>
+        <textarea name="blurb" rows="3"></textarea>
+      </div>
+      <button class="primary" type="submit">Add collection</button>
+      <p class="msg" id="createCollectionMsg"></p>
+    </form>
+    <div id="collectionsList"></div>
+
     <h2 class="section-heading">Paintings</h2>
     <form class="painting-form" id="createForm">
       <div>
@@ -103,6 +127,12 @@
       <div>
         <label>Description</label>
         <textarea name="description" rows="3"></textarea>
+      </div>
+      <div>
+        <label>Collection (optional)</label>
+        <select name="collectionId" id="createCollectionSelect">
+          <option value="">&mdash; none &mdash;</option>
+        </select>
       </div>
       <div class="field-row">
         <div>
@@ -164,13 +194,129 @@ function escapeHtml(str) {
   return String(str).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
 
-function showDashboard() {
+let allCollections = [];
+
+async function showDashboard() {
   loginView.hidden = true;
   dashboardView.hidden = false;
+  await loadCollections();
   loadList();
   loadCommissions();
   loadSiteText();
 }
+
+async function loadCollections() {
+  const res = await fetch('/api/collections');
+  const { collections } = await res.json();
+  allCollections = collections || [];
+
+  const select = document.getElementById('createCollectionSelect');
+  const prevValue = select.value;
+  select.innerHTML = '<option value="">&mdash; none &mdash;</option>' +
+    allCollections.map((c) => `<option value="${c.id}">${escapeHtml(c.name)}</option>`).join('');
+  select.value = prevValue;
+
+  const container = document.getElementById('collectionsList');
+  if (!allCollections.length) {
+    container.innerHTML = '<p class="empty-state">No collections yet.</p>';
+    return;
+  }
+
+  container.innerHTML = allCollections
+    .map(
+      (c) => `
+        <div class="collection-item" data-id="${c.id}">
+          <div class="row-top">
+            <div>
+              <h3>${escapeHtml(c.name)}</h3>
+              ${c.blurb ? `<p>${escapeHtml(c.blurb)}</p>` : ''}
+            </div>
+            <div class="actions">
+              <button class="edit-collection-btn">Edit</button>
+              <button class="danger delete-collection-btn">Delete</button>
+            </div>
+          </div>
+          <form class="collection-edit" hidden>
+            <div>
+              <label>Name</label>
+              <input type="text" name="name" value="${escapeHtml(c.name)}" required />
+            </div>
+            <div>
+              <label>Intro text</label>
+              <textarea name="blurb" rows="3">${escapeHtml(c.blurb || '')}</textarea>
+            </div>
+            <div class="edit-actions">
+              <button class="primary" type="submit">Save</button>
+              <button class="secondary cancel-edit-collection-btn" type="button">Cancel</button>
+            </div>
+            <p class="msg" data-edit-msg></p>
+          </form>
+        </div>`
+    )
+    .join('');
+
+  container.querySelectorAll('.collection-item').forEach((item) => {
+    const id = item.dataset.id;
+    const panel = item.querySelector('.collection-edit');
+
+    item.querySelector('.edit-collection-btn').addEventListener('click', () => {
+      panel.hidden = !panel.hidden;
+    });
+    item.querySelector('.cancel-edit-collection-btn').addEventListener('click', () => {
+      panel.hidden = true;
+    });
+    item.querySelector('.delete-collection-btn').addEventListener('click', async () => {
+      if (!confirm('Delete this collection? Paintings in it will just show ungrouped.')) return;
+      await authFetch(`/api/admin/collections/${id}`, { method: 'DELETE' });
+      loadCollections();
+      loadList();
+    });
+    panel.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const msg = panel.querySelector('[data-edit-msg]');
+      msg.textContent = '';
+      msg.className = 'msg';
+      try {
+        const r = await authFetch(`/api/admin/collections/${id}`, {
+          method: 'PUT',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ name: panel.elements.name.value, blurb: panel.elements.blurb.value }),
+        });
+        const out = await r.json();
+        if (!r.ok) throw new Error(out.error || 'Could not save');
+        loadCollections();
+        loadList();
+      } catch (err) {
+        msg.textContent = err.message;
+        msg.className = 'msg error';
+      }
+    });
+  });
+}
+
+document.getElementById('createCollectionForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const form = e.target;
+  const msg = document.getElementById('createCollectionMsg');
+  msg.textContent = '';
+  msg.className = 'msg';
+  try {
+    const r = await authFetch('/api/admin/collections', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ name: form.elements.name.value, blurb: form.elements.blurb.value }),
+    });
+    const out = await r.json();
+    if (!r.ok) throw new Error(out.error || 'Could not add collection');
+    form.reset();
+    msg.textContent = 'Added.';
+    msg.className = 'msg ok';
+    loadCollections();
+  } catch (err) {
+    msg.textContent = err.message;
+    msg.className = 'msg error';
+  }
+});
 
 async function loadSiteText() {
   const res = await fetch('/api/sitetext');
@@ -419,6 +565,13 @@ async function loadList() {
             <div>
               <label>Description</label>
               <textarea name="description" rows="3">${escapeHtml(p.description || '')}</textarea>
+            </div>
+            <div>
+              <label>Collection</label>
+              <select name="collectionId">
+                <option value="">&mdash; none &mdash;</option>
+                ${allCollections.map((c) => `<option value="${c.id}" ${p.collectionId === c.id ? 'selected' : ''}>${escapeHtml(c.name)}</option>`).join('')}
+              </select>
             </div>
             <div class="field-row">
               <div>

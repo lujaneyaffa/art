@@ -90,6 +90,36 @@ main {
   padding: 2.5rem 1.5rem 4rem;
 }
 
+.collection {
+  margin-bottom: 4.5rem;
+}
+
+.collection:last-child {
+  margin-bottom: 0;
+}
+
+.collection-header {
+  text-align: center;
+  max-width: 560px;
+  margin: 0 auto 2.5rem;
+}
+
+.collection-name {
+  font-size: 1rem;
+  font-weight: 600;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  margin: 0 0 0.75rem;
+}
+
+.collection-blurb {
+  color: #333;
+  line-height: 1.7;
+  font-size: 0.9rem;
+  white-space: pre-wrap;
+  margin: 0;
+}
+
 .grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));

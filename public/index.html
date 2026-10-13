@@ -30,7 +30,7 @@
 </header>
 
 <main>
-  <div id="grid" class="grid"></div>
+  <div id="sections"></div>
   <div id="emptyState" class="empty-state" hidden>No paintings listed yet. Check back soon.</div>
 </main>
 
@@ -67,7 +67,7 @@ footerLogoutBtn.addEventListener('click', () => {
   footerLogoutBtn.hidden = true;
 });
 
-const grid = document.getElementById('grid');
+const sections = document.getElementById('sections');
 const emptyState = document.getElementById('emptyState');
 const overlay = document.getElementById('overlay');
 const modalBody = document.getElementById('modalBody');
@@ -112,28 +112,63 @@ function escapeHtml(str) {
   return String(str).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
 
+function paintingCard(p) {
+  const img = p.images && p.images[0] ? `<img src="/api/images/${p.images[0]}" alt="" loading="lazy" decoding="async">` : '';
+  return `
+    <button class="card" data-id="${p.id}">
+      <div class="thumb ${img ? '' : 'empty'}">${img || 'No photo'}</div>
+      <h2>${escapeHtml(p.title)}</h2>
+      ${p.status === 'sold' ? '<span class="status">Sold</span>' : ''}
+    </button>`;
+}
+
 async function loadPaintings() {
-  const res = await fetch('/api/paintings');
-  const data = await res.json();
-  const paintings = data.paintings || [];
+  const [paintingsRes, collectionsRes] = await Promise.all([
+    fetch('/api/paintings'),
+    fetch('/api/collections'),
+  ]);
+  const { paintings: allPaintings } = await paintingsRes.json();
+  const { collections } = await collectionsRes.json().catch(() => ({ collections: [] }));
+  const paintings = (allPaintings || []).filter((p) => p.status !== 'archived');
+
   if (!paintings.length) {
     emptyState.hidden = false;
+    sections.innerHTML = '';
     return;
   }
-  grid.innerHTML = paintings
-    .filter((p) => p.status !== 'archived')
-    .map((p) => {
-      const img = p.images && p.images[0] ? `<img src="/api/images/${p.images[0]}" alt="" loading="lazy" decoding="async">` : '';
-      return `
-        <button class="card" data-id="${p.id}">
-          <div class="thumb ${img ? '' : 'empty'}">${img || 'No photo'}</div>
-          <h2>${escapeHtml(p.title)}</h2>
-          ${p.status === 'sold' ? '<span class="status">Sold</span>' : ''}
-        </button>`;
+  emptyState.hidden = true;
+
+  const byCollection = new Map();
+  const uncategorized = [];
+  for (const p of paintings) {
+    const match = p.collectionId && (collections || []).find((c) => c.id === p.collectionId);
+    if (!match) {
+      uncategorized.push(p);
+      continue;
+    }
+    if (!byCollection.has(match.id)) byCollection.set(match.id, []);
+    byCollection.get(match.id).push(p);
+  }
+
+  const groups = [];
+  for (const c of collections || []) {
+    if (byCollection.has(c.id)) groups.push({ collection: c, paintings: byCollection.get(c.id) });
+  }
+  if (uncategorized.length) groups.push({ collection: null, paintings: uncategorized });
+
+  sections.innerHTML = groups
+    .map(({ collection, paintings: group }) => {
+      const header = collection
+        ? `<div class="collection-header">
+            <h2 class="collection-name">${escapeHtml(collection.name)}</h2>
+            ${collection.blurb ? `<p class="collection-blurb">${escapeHtml(collection.blurb)}</p>` : ''}
+          </div>`
+        : '';
+      return `<section class="collection">${header}<div class="grid">${group.map(paintingCard).join('')}</div></section>`;
     })
     .join('');
 
-  grid.querySelectorAll('.card').forEach((card) => {
+  sections.querySelectorAll('.card').forEach((card) => {
     card.addEventListener('click', () => openPainting(card.dataset.id));
   });
 

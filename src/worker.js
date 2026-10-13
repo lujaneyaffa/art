@@ -12,6 +12,7 @@
 //   commission:<id>       JSON commission request record
 //   commissions:index     JSON array of commission ids, newest first
 //   sitetext              JSON {heading, tagline} for the site header
+//   collections            JSON array of {id, name, blurb}, display order
 
 const SESSION_TTL_SECONDS = 60 * 60 * 24 * 7;
 
@@ -40,6 +41,22 @@ export default {
 
       if (pathname === "/api/admin/sitetext" && request.method === "PUT") {
         return await withAuth(request, env, (req) => updateSiteText(req, env));
+      }
+
+      if (pathname === "/api/collections" && request.method === "GET") {
+        return await listCollections(env);
+      }
+
+      if (pathname === "/api/admin/collections" && request.method === "POST") {
+        return await withAuth(request, env, (req) => createCollection(req, env));
+      }
+
+      const collectionMatch = pathname.match(/^\/api\/admin\/collections\/([^/]+)$/);
+      if (collectionMatch && request.method === "PUT") {
+        return await withAuth(request, env, (req) => updateCollection(req, env, collectionMatch[1]));
+      }
+      if (collectionMatch && request.method === "DELETE") {
+        return await withAuth(request, env, () => deleteCollection(env, collectionMatch[1]));
       }
 
       if (pathname === "/api/bids" && request.method === "POST") {
@@ -229,6 +246,7 @@ async function createPainting(request, env) {
   const medium = (formData.get("medium") || "").toString().trim();
   const dimensions = (formData.get("dimensions") || "").toString().trim();
   const year = (formData.get("year") || "").toString().trim();
+  const collectionId = (formData.get("collectionId") || "").toString().trim() || null;
   const startingBid = Number(formData.get("startingBid") || 0);
   const endsAt = parseEndsAt(formData.get("endsAt"));
 
@@ -250,6 +268,7 @@ async function createPainting(request, env) {
     medium,
     dimensions,
     year,
+    collectionId,
     startingBid,
     currentBid: startingBid,
     highestBidderName: null,
@@ -279,6 +298,7 @@ async function updatePainting(request, env, id) {
   const medium = formData.get("medium");
   const dimensions = formData.get("dimensions");
   const year = formData.get("year");
+  const collectionId = formData.get("collectionId");
   const status = formData.get("status");
   const endsAt = formData.get("endsAt");
   const removeImages = formData.getAll("removeImage").map(String);
@@ -288,6 +308,7 @@ async function updatePainting(request, env, id) {
   if (medium !== null) painting.medium = medium.toString().trim();
   if (dimensions !== null) painting.dimensions = dimensions.toString().trim();
   if (year !== null) painting.year = year.toString().trim();
+  if (collectionId !== null) painting.collectionId = collectionId.toString().trim() || null;
   if (status !== null && ["available", "sold", "archived"].includes(status.toString())) {
     painting.status = status.toString();
   }
@@ -510,6 +531,55 @@ async function updateSiteText(request, env) {
   const text = { heading, tagline };
   await env.ART_DATA.put("sitetext", JSON.stringify(text));
   return json(text);
+}
+
+async function getCollections(env) {
+  const raw = await env.ART_DATA.get("collections");
+  return raw ? JSON.parse(raw) : [];
+}
+
+async function saveCollections(env, collections) {
+  await env.ART_DATA.put("collections", JSON.stringify(collections));
+}
+
+async function listCollections(env) {
+  return json({ collections: await getCollections(env) });
+}
+
+async function createCollection(request, env) {
+  const body = await request.json().catch(() => ({}));
+  const name = (body.name || "").toString().trim();
+  const blurb = (body.blurb || "").toString().trim();
+  if (!name) return json({ error: "Name is required" }, 400);
+
+  const collections = await getCollections(env);
+  const collection = { id: crypto.randomUUID(), name, blurb };
+  collections.push(collection);
+  await saveCollections(env, collections);
+  return json({ collection }, 201);
+}
+
+async function updateCollection(request, env, id) {
+  const collections = await getCollections(env);
+  const collection = collections.find((c) => c.id === id);
+  if (!collection) return json({ error: "Not found" }, 404);
+
+  const body = await request.json().catch(() => ({}));
+  if (body.name !== undefined) {
+    const name = body.name.toString().trim();
+    if (!name) return json({ error: "Name is required" }, 400);
+    collection.name = name;
+  }
+  if (body.blurb !== undefined) collection.blurb = body.blurb.toString().trim();
+
+  await saveCollections(env, collections);
+  return json({ collection });
+}
+
+async function deleteCollection(env, id) {
+  const collections = (await getCollections(env)).filter((c) => c.id !== id);
+  await saveCollections(env, collections);
+  return json({ ok: true });
 }
 
 async function serveImage(env, imageId) {
