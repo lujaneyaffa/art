@@ -19,10 +19,12 @@
 <meta name="apple-mobile-web-app-title" content="Lujane Yaffa" />
 <link rel="stylesheet" href="style.css" />
 <style>
-  .commission-form { display: grid; gap: 0.6rem; max-width: 440px; margin: 0 auto; }
-  .commission-form label { font-size: 0.7rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); display: block; margin-bottom: 0.2rem; }
-  .commission-form textarea { min-height: 8rem; }
-  .commission-intro { max-width: 440px; margin: 0 auto 2rem; text-align: center; color: #333; line-height: 1.6; font-size: 0.9rem; }
+  .commission-form { display: grid; gap: 1.1rem; max-width: 480px; margin: 0 auto; }
+  .commission-form label { font-size: 0.75rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); display: block; margin-bottom: 0.35rem; text-align: center; }
+  .commission-form input,
+  .commission-form textarea { width: 100%; font-size: 1rem; padding: 0.85rem 1rem; }
+  .commission-form textarea { min-height: 9rem; }
+  .commission-intro { max-width: 480px; margin: 0 auto 2rem; text-align: center; color: #333; line-height: 1.6; font-size: 0.9rem; }
 </style>
 </head>
 <body>
@@ -47,8 +49,8 @@
       <input type="email" name="email" required />
     </div>
     <div>
-      <label>Budget (optional)</label>
-      <input type="text" name="budget" placeholder="e.g. $200&ndash;300" />
+      <label>Budget</label>
+      <input type="text" name="budget" placeholder="e.g. $200&ndash;300" required />
     </div>
     <div>
       <label>What are you picturing?</label>

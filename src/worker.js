@@ -467,8 +467,8 @@ async function createCommission(request, env) {
   const description = (body.description || "").toString().trim();
   const budget = (body.budget || "").toString().trim();
 
-  if (!name || !email || !description) {
-    return json({ error: "Name, email, and a description are required" }, 400);
+  if (!name || !email || !description || !budget) {
+    return json({ error: "Name, email, budget, and a description are required" }, 400);
   }
 
   const id = crypto.randomUUID();
